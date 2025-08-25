@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>미수금 조회 프로그램</title>
     <style>
-        /* 이전과 동일한 스타일 */
+        /* 스타일 코드는 이전과 동일합니다 */
         body { font-family: sans-serif; margin: 0; padding: 1em; background-color: #f4f4f9; }
         .container { max-width: 800px; margin: 0 auto; background-color: white; padding: 1.5em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { text-align: center; margin-bottom: 1em;}
         input { width: 100%; padding: 10px; box-sizing: border-box; margin-bottom: 10px; }
         button { width: 100%; padding: 10px 15px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; font-size: 1em; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
@@ -19,15 +20,28 @@
         .col-item { width: 15%; }
         .col-details { width: 33%; }
         .col-amount { width: 20%; }
-        .notice-box { background-color: #f3f8ff; border: 1px solid #b8d6ff; padding: 15px; margin-top: 15px; margin-bottom: 25px; border-radius: 5px; font-size: 14px; line-height: 1.6; }
+        .notice-box { background-color: #f3f8ff; border: 1px solid #b8d6ff; padding: 15px; margin-top: 25px; border-radius: 5px; font-size: 14px; line-height: 1.6; }
         .account-number { color: red; font-weight: bold; }
         .result-header { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
         #result-message { font-weight: bold; }
         #total-amount { font-weight: bold; font-size: 1.2em; color: #d93025; }
+
+        /* --- 추가된 판매처 이름 스타일 --- */
+        #seller-name {
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+
+
         @media (max-width: 600px) {
             body { padding: 0.5em; }
             .container { padding: 1em; }
             h1 { font-size: 1.5em; }
+            #seller-name { font-size: 1.2em; }
             table, thead, tbody, th, td, tr { display: block; }
             thead tr { position: absolute; top: -9999px; left: -9999px; }
             tr { border: 1px solid #ccc; margin-bottom: 5px; }
@@ -45,19 +59,25 @@
 <body>
     <div class="container">
         <h1>POS코드 기준 미수금 조회</h1>
+
+        <div>
+            <input type="text" id="pos-code-input" placeholder="POS코드를 입력하세요">
+            <button onclick="search()">조회</button>
+        </div>
+
+        <h2 id="seller-name"></h2>
+
         <div class="notice-box">
              상기 판매점은 주식회사 유모스트와의 거래중 아래와 같은 사유로 미수금이 발생하여 입금을 요청하는 바 , <br>
              다음의 계좌로 기간 내 입금하여 주시기 바랍니다. <br>
             <span class="account-number">우리은행 1005-003-519136 주식회사 유모스트</span> &nbsp;&nbsp;// 입금기한 : 미수금공지후 3일이내 입금필수
         </div>
-        <div>
-            <input type="text" id="pos-code-input" placeholder="POS코드를 입력하세요">
-            <button onclick="search()">조회</button>
-        </div>
+
         <div class="result-header">
             <div id="result-message"></div>
             <div id="total-amount"></div>
         </div>
+
         <table id="result-table">
             <thead>
                 <tr>
@@ -74,90 +94,70 @@
     </div>
 
     <script>
-        // 데이터 로딩 상태를 관리할 변수
-        let allData = [];
-        let dataLoaded = false;
-
-        // 페이지가 처음 열릴 때 CSV 데이터를 미리 로드합니다.
-        document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                // data.csv 파일을 직접 fetch합니다.
-                const response = await fetch('data.csv');
-                if (!response.ok) {
-                    throw new Error('data.csv 파일을 불러올 수 없습니다.');
-                }
-                const csvText = await response.text();
-                
-                // CSV 텍스트를 파싱하여 자바스크립트 객체 배열로 변환
-                const lines = csvText.trim().split('\n');
-                const headers = lines[0].split(',').map(h => h.trim());
-                allData = lines.slice(1).map(line => {
-                    const values = line.split(',');
-                    let obj = {};
-                    headers.forEach((header, i) => {
-                        obj[header] = values[i] ? values[i].trim() : '';
-                    });
-                    return obj;
-                });
-                
-                dataLoaded = true;
-                console.log('데이터 로딩 완료!', allData.length, '개의 데이터');
-            } catch (error) {
-                console.error('데이터 로딩 중 오류 발생:', error);
-                alert('데이터 파일을 로딩하는 데 실패했습니다. data.csv 파일이 올바른 위치에 있는지 확인하세요.');
-            }
+        document.getElementById('pos-code-input').addEventListener('keyup', (event) => {
+            if (event.key === 'Enter') search();
         });
 
-        function search() {
-            if (!dataLoaded) {
-                alert('데이터를 로딩 중입니다. 잠시 후 다시 시도해주세요.');
-                return;
-            }
-            
+        async function search() {
             const posCode = document.getElementById('pos-code-input').value;
             const tableBody = document.querySelector("#result-table tbody");
             const resultMessage = document.getElementById('result-message');
             const totalAmountDiv = document.getElementById('total-amount');
+            const sellerNameDiv = document.getElementById('seller-name'); // 판매처 이름 div 선택
 
             // 초기화
             tableBody.innerHTML = "";
             resultMessage.innerHTML = "";
             totalAmountDiv.innerHTML = "";
+            sellerNameDiv.innerHTML = ""; // 판매처 이름 초기화
             resultMessage.className = "";
 
             if (!posCode) {
                 alert("POS코드를 입력해주세요.");
                 return;
             }
-            
-            // 미리 로드된 allData에서 검색
-            const results = allData.filter(item => item['POS코드'] && item['POS코드'].trim() === posCode.trim());
 
-            if (results.length === 0) {
-                resultMessage.innerText = `'${posCode}'에 대한 조회 결과가 없습니다.`;
-                return;
+            try {
+                const response = await fetch(`/search?pos_code=${posCode}`);
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `서버가 응답하지 않습니다. (상태 코드: ${response.status})`);
+                }
+
+                const data = await response.json();
+
+                if (data.length === 0) {
+                    resultMessage.innerText = `'${posCode}'에 대한 조회 결과가 없습니다.`;
+                    return;
+                }
+
+                // ============== 판매처 이름 표시 로직 추가 =================
+                // 조회 결과의 첫 번째 항목에서 판매처 이름을 가져와 표시합니다.
+                sellerNameDiv.innerText = data[0]['판매처'];
+
+                resultMessage.innerText = `총 ${data.length}건이 조회되었습니다.`;
+
+                let totalSum = 0;
+                data.forEach(item => {
+                    totalSum += Number(item['정산금액'] || 0);
+
+                    let row = tableBody.insertRow();
+                    row.insertCell(0).innerText = item['판매처'];
+                    row.insertCell(1).innerText = item['정산년월'];
+                    row.insertCell(2).innerText = item['정산항목'];
+                    row.insertCell(3).innerText = item['상세내용'];
+                    row.insertCell(4).innerText = Number(item['정산금액'] || 0).toLocaleString();
+                });
+
+                totalAmountDiv.innerText = `총 미수금액: ${(totalSum * -1).toLocaleString()}원`;
+
+            } catch (error) {
+                console.error("오류 상세 정보:", error);
+                resultMessage.innerText = `오류가 발생했습니다: ${error.message}`;
+                resultMessage.className = 'error';
             }
-
-            resultMessage.innerText = `총 ${results.length}건이 조회되었습니다.`;
-
-            let totalSum = 0;
-            results.forEach(item => {
-                totalSum += Number(item['정산금액'] || 0); // 정산금액이 없을 경우 0으로 처리
-                
-                let row = tableBody.insertRow();
-                row.insertCell(0).innerText = item['판매처'];
-                row.insertCell(1).innerText = item['정산년월'];
-                row.insertCell(2).innerText = item['정산항목'];
-                row.insertCell(3).innerText = item['상세내용'];
-                row.insertCell(4).innerText = Number(item['정산금액'] || 0).toLocaleString();
-            });
-
-            totalAmountDiv.innerText = `총 미수금액: ${(totalSum * -1).toLocaleString()}원`;
         }
-
-        document.getElementById('pos-code-input').addEventListener('keyup', (event) => {
-            if (event.key === 'Enter') search();
-        });
     </script>
 </body>
 </html>
