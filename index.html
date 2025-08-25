@@ -13,40 +13,42 @@
         input { flex-grow: 1; padding: 10px; box-sizing: border-box; }
         button { padding: 10px 15px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; font-size: 1em; white-space: nowrap; }
         #capture-btn { background-color: #28a745; }
-        table { width: 100%; min-width: 600px; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; word-wrap: break-word; }
         th { background-color: #f2f2f2; }
         .error { color: red; }
         .col-date { width: 15%; }
         .col-item { width: 20%; }
         .col-details { width: 45%; }
-        .col-amount { width: 20%; }
+        .col-amount { width: 20%; text-align: right; } /* 금액은 오른쪽 정렬 */
         .notice-box { background-color: #f3f8ff; border: 1px solid #b8d6ff; padding: 15px; margin-top: 1.5em; border-radius: 5px; font-size: 14px; line-height: 1.6; }
         .account-number { color: red; font-weight: bold; }
         .result-header { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
         #result-message { font-weight: bold; }
         #total-amount { font-weight: bold; font-size: 1.2em; color: #d93025; }
-        
-        /* --- '<미수금 청구서>' 제목 스타일 추가 --- */
-        #invoice-title {
-            text-align: center;
-            font-size: 1.8em;
-            font-weight: bold;
-            color: #2c3e50;
-            margin-top: 1.5em;
-            margin-bottom: 0.2em;
-        }
+        #invoice-title { text-align: center; font-size: 1.8em; font-weight: bold; color: #2c3e50; margin-top: 1.5em; margin-bottom: 0.2em; }
         #seller-name { text-align: center; font-size: 1.2em; color: #333; margin-top: 0; }
-        
         .table-wrapper { overflow-x: auto; margin-top: 1em; }
 
+        /* --- 모바일 화면 처리 --- */
         @media (max-width: 768px) {
             body { padding: 0.5em; }
             .container { padding: 1em; }
             h1 { font-size: 1.5em; }
             #invoice-title { font-size: 1.5em; }
             #seller-name { font-size: 1.1em; }
-            #capture-btn { display: none; }
+            .search-controls { flex-direction: column; }
+            
+            /* ============== 모바일 캡쳐 버튼 숨기기 ============== */
+            #capture-btn { display: none !important; }
+
+            /* ============== 모바일 표 자동 맞춤 스타일 ============== */
+            .table-wrapper { overflow-x: hidden; } /* 가로 스크롤 제거 */
+            table { table-layout: auto; } /* 테이블 자동 레이아웃으로 변경 */
+            th, td {
+                font-size: 12px; /* 글자 크기 축소 */
+                padding: 5px;   /* 여백 축소 */
+            }
         }
     </style>
 </head>
@@ -56,12 +58,11 @@
         <div class="search-controls">
             <input type="text" id="pos-code-input" placeholder="POS코드를 입력하세요">
             <button onclick="search()">조회</button>
-            <button id="capture-btn" onclick="captureResults()" style="display: none;">결과 전체 캡쳐</button>
+            <button id="capture-btn" onclick="captureResults()" style="display: none;">캡쳐 다운로드</button>
         </div>
 
         <div id="capture-area">
             <h2 id="invoice-title" style="display: none;">&lt;미수금 청구서&gt;</h2>
-
             <h3 id="seller-name"></h3>
             <div class="notice-box" id="notice-box" style="display: none;">
                  <strong id="notice-seller-name"></strong>(은)는 주식회사 유모스트와의 거래중 아래와 같은 사유로 미수금이 발생하여 입금을 요청하는 바 , <br>
@@ -99,7 +100,7 @@
             const tableBody = document.querySelector("#result-table tbody");
             const resultMessage = document.getElementById('result-message');
             const totalAmountDiv = document.getElementById('total-amount');
-            const invoiceTitle = document.getElementById('invoice-title'); // 청구서 제목 선택
+            const invoiceTitle = document.getElementById('invoice-title');
             const sellerNameDiv = document.getElementById('seller-name');
             const noticeBox = document.getElementById('notice-box');
             const noticeSellerName = document.getElementById('notice-seller-name');
@@ -109,7 +110,7 @@
             tableBody.innerHTML = "";
             resultMessage.innerHTML = "";
             totalAmountDiv.innerHTML = "";
-            invoiceTitle.style.display = 'none'; // 청구서 제목 숨기기
+            invoiceTitle.style.display = 'none';
             sellerNameDiv.innerHTML = "";
             noticeBox.style.display = 'none';
             captureBtn.style.display = 'none';
@@ -134,11 +135,11 @@
                 }
 
                 const sellerName = data[0]['판매처'];
-                invoiceTitle.style.display = 'block'; // 청구서 제목 보이기
+                invoiceTitle.style.display = 'block';
                 sellerNameDiv.innerText = sellerName;
                 noticeSellerName.innerText = sellerName;
                 noticeBox.style.display = 'block';
-                captureBtn.style.display = 'inline-block';
+                captureBtn.style.display = 'block'; // PC에서는 항상 보이도록 block으로 설정
 
                 resultMessage.innerText = `총 ${data.length}건이 조회되었습니다.`;
 
@@ -149,7 +150,9 @@
                     row.insertCell(0).innerText = item['정산년월'];
                     row.insertCell(1).innerText = item['정산항목'];
                     row.insertCell(2).innerText = item['상세내용'];
-                    row.insertCell(3).innerText = Number(item['정산금액'] || 0).toLocaleString();
+                    let amountCell = row.insertCell(3);
+                    amountCell.innerText = Number(item['정산금액'] || 0).toLocaleString();
+                    amountCell.style.textAlign = 'right'; // 금액 오른쪽 정렬
                 });
 
                 totalAmountDiv.innerText = `총 미수금액: ${(totalSum * -1).toLocaleString()}원`;
@@ -164,18 +167,27 @@
             const captureArea = document.getElementById('capture-area');
             const sellerName = document.getElementById('seller-name').innerText;
             
+            // 캡쳐 전 잠시 스크롤바 없애기
+            const wrapper = document.querySelector('.table-wrapper');
+            wrapper.style.overflowX = 'visible';
+
             html2canvas(captureArea, {
                 scale: 2, 
                 backgroundColor: "#ffffff",
-                useCORS: true
+                useCORS: true,
+                windowWidth: captureArea.scrollWidth,
+                windowHeight: captureArea.scrollHeight
             }).then(canvas => {
                 const image = canvas.toDataURL("image/png", 1.0);
                 const link = document.createElement('a');
                 link.href = image;
-                link.download = `미수금청구서_${sellerName}.png`; // 파일명 수정
+                link.download = `미수금청구서_${sellerName}.png`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
+                
+                // 캡쳐 후 스크롤바 복원
+                wrapper.style.overflowX = 'auto';
             });
         }
     </script>
