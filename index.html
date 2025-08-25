@@ -26,23 +26,33 @@
         .result-header { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
         #result-message { font-weight: bold; }
         #total-amount { font-weight: bold; font-size: 1.2em; color: #d93025; }
-        #seller-name { text-align: center; font-size: 1.5em; font-weight: bold; color: #333; margin-top: 1.5em; margin-bottom: 0; }
+        
+        /* --- '<미수금 청구서>' 제목 스타일 추가 --- */
+        #invoice-title {
+            text-align: center;
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-top: 1.5em;
+            margin-bottom: 0.2em;
+        }
+        #seller-name { text-align: center; font-size: 1.2em; color: #333; margin-top: 0; }
+        
         .table-wrapper { overflow-x: auto; margin-top: 1em; }
 
-        /* --- 모바일 화면 처리 --- */
         @media (max-width: 768px) {
             body { padding: 0.5em; }
             .container { padding: 1em; }
             h1 { font-size: 1.5em; }
-            #seller-name { font-size: 1.2em; }
-            /* 모바일에서는 캡쳐 버튼 숨기기 */
+            #invoice-title { font-size: 1.5em; }
+            #seller-name { font-size: 1.1em; }
             #capture-btn { display: none; }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>POS코드 기준 미수금 조회</h1>
+        <h1>POS코드별 미수금 조회</h1>
         <div class="search-controls">
             <input type="text" id="pos-code-input" placeholder="POS코드를 입력하세요">
             <button onclick="search()">조회</button>
@@ -50,7 +60,9 @@
         </div>
 
         <div id="capture-area">
-            <h2 id="seller-name"></h2>
+            <h2 id="invoice-title" style="display: none;">&lt;미수금 청구서&gt;</h2>
+
+            <h3 id="seller-name"></h3>
             <div class="notice-box" id="notice-box" style="display: none;">
                  <strong id="notice-seller-name"></strong>(은)는 주식회사 유모스트와의 거래중 아래와 같은 사유로 미수금이 발생하여 입금을 요청하는 바 , <br>
                  다음의 계좌로 기간 내 입금하여 주시기 바랍니다. <br>
@@ -87,18 +99,20 @@
             const tableBody = document.querySelector("#result-table tbody");
             const resultMessage = document.getElementById('result-message');
             const totalAmountDiv = document.getElementById('total-amount');
+            const invoiceTitle = document.getElementById('invoice-title'); // 청구서 제목 선택
             const sellerNameDiv = document.getElementById('seller-name');
             const noticeBox = document.getElementById('notice-box');
             const noticeSellerName = document.getElementById('notice-seller-name');
-            const captureBtn = document.getElementById('capture-btn'); // 캡쳐 버튼 선택
+            const captureBtn = document.getElementById('capture-btn');
 
             // 초기화
             tableBody.innerHTML = "";
             resultMessage.innerHTML = "";
             totalAmountDiv.innerHTML = "";
+            invoiceTitle.style.display = 'none'; // 청구서 제목 숨기기
             sellerNameDiv.innerHTML = "";
             noticeBox.style.display = 'none';
-            captureBtn.style.display = 'none'; // 캡쳐 버튼 숨기기
+            captureBtn.style.display = 'none';
             resultMessage.className = "";
 
             if (!posCode) {
@@ -120,10 +134,11 @@
                 }
 
                 const sellerName = data[0]['판매처'];
+                invoiceTitle.style.display = 'block'; // 청구서 제목 보이기
                 sellerNameDiv.innerText = sellerName;
                 noticeSellerName.innerText = sellerName;
                 noticeBox.style.display = 'block';
-                captureBtn.style.display = 'inline-block'; // 조회 성공 시 캡쳐 버튼 보이기
+                captureBtn.style.display = 'inline-block';
 
                 resultMessage.innerText = `총 ${data.length}건이 조회되었습니다.`;
 
@@ -145,26 +160,19 @@
             }
         }
         
-        // ============== 캡쳐 기능 함수 추가 =================
         function captureResults() {
             const captureArea = document.getElementById('capture-area');
             const sellerName = document.getElementById('seller-name').innerText;
             
             html2canvas(captureArea, {
-                // 캡쳐 품질 및 배경색 설정
                 scale: 2, 
                 backgroundColor: "#ffffff",
                 useCORS: true
             }).then(canvas => {
-                // 캔버스를 이미지 파일로 변환
                 const image = canvas.toDataURL("image/png", 1.0);
-                
-                // 다운로드용 임시 링크 생성
                 const link = document.createElement('a');
                 link.href = image;
-                link.download = `미수금내역_${sellerName}.png`; // 파일명 설정
-                
-                // 링크 클릭하여 다운로드 실행
+                link.download = `미수금청구서_${sellerName}.png`; // 파일명 수정
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
