@@ -280,6 +280,9 @@
             const wrapper = captureArea.querySelector('.table-wrapper');
             const originalMaxHeight = wrapper.style.maxHeight;
 
+            // 캡쳐할 영역에 임시로 여백(padding)과 크기 설정 추가
+            captureArea.style.padding = '20px';
+            captureArea.style.boxSizing = 'border-box';
             wrapper.style.maxHeight = 'none';
             wrapper.style.overflowX = 'visible';
 
@@ -298,6 +301,9 @@
                 link.click();
                 document.body.removeChild(link);
                 
+                // 원래 스타일로 복원
+                captureArea.style.padding = '';
+                captureArea.style.boxSizing = '';
                 wrapper.style.maxHeight = originalMaxHeight;
                 wrapper.style.overflowX = 'auto';
             });
