@@ -9,165 +9,242 @@
         body { font-family: sans-serif; margin: 0; padding: 1em; background-color: #f4f4f9; }
         .container { max-width: 800px; margin: 0 auto; background-color: white; padding: 1.5em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         h1 { text-align: center; margin-bottom: 1em;}
-        .search-controls { display: flex; gap: 10px; }
+        .search-container { margin-bottom: 1em; }
+        .search-controls { display: flex; gap: 10px; margin-bottom: 10px;}
         input { flex-grow: 1; padding: 10px; box-sizing: border-box; }
         button { padding: 10px 15px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; font-size: 1em; white-space: nowrap; }
         #capture-btn { background-color: #28a745; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; word-wrap: break-word; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1em; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
         th { background-color: #f2f2f2; }
+        .result-message { margin-top: 1em; }
+        .success { color: green; }
         .error { color: red; }
-        .col-date { width: 15%; }
-        .col-item { width: 20%; }
-        .col-details { width: 45%; }
-        .col-amount { width: 20%; text-align: right; } /* 금액은 오른쪽 정렬 */
-        .notice-box { background-color: #f3f8ff; border: 1px solid #b8d6ff; padding: 15px; margin-top: 1.5em; border-radius: 5px; font-size: 14px; line-height: 1.6; }
-        .account-number { color: red; font-weight: bold; }
-        .result-header { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
-        #result-message { font-weight: bold; }
-        #total-amount { font-weight: bold; font-size: 1.2em; color: #d93025; }
-        #invoice-title { text-align: center; font-size: 1.8em; font-weight: bold; color: #2c3e50; margin-top: 1.5em; margin-bottom: 0.2em; }
-        #seller-name { text-align: center; font-size: 1.2em; color: #333; margin-top: 0; }
-        .table-wrapper { overflow-x: auto; margin-top: 1em; }
-
-        /* --- 모바일 화면 처리 --- */
-        @media (max-width: 768px) {
-            body { padding: 0.5em; }
-            .container { padding: 1em; }
-            h1 { font-size: 1.5em; }
-            #invoice-title { font-size: 1.5em; }
-            #seller-name { font-size: 1.1em; }
-            .search-controls { flex-direction: column; }
-            
-            /* ============== 모바일 캡쳐 버튼 숨기기 ============== */
-            #capture-btn { display: none !important; }
-
-            /* ============== 모바일 표 자동 맞춤 스타일 ============== */
-            .table-wrapper { overflow-x: hidden; } /* 가로 스크롤 제거 */
-            table { table-layout: auto; } /* 테이블 자동 레이아웃으로 변경 */
-            th, td {
-                font-size: 12px; /* 글자 크기 축소 */
-                padding: 5px;   /* 여백 축소 */
-            }
-        }
+        .table-wrapper { max-height: 400px; overflow-x: auto; margin-top: 1em;}
+        #totalAmountDiv { font-weight: bold; text-align: right; margin-top: 1em;}
+        #manager-results-container, #pos-results-container { display: none; } /* Initially hide both containers */
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>POS코드별 미수금 조회</h1>
-        <div class="search-controls">
-            <input type="text" id="pos-code-input" placeholder="POS코드를 입력하세요">
-            <button onclick="search()">조회</button>
-            <button id="capture-btn" onclick="captureResults()" style="display: none;">캡쳐 다운로드</button>
+        <h1>미수금 조회 프로그램</h1>
+
+        <!-- 담당자 검색 -->
+        <div class="search-container">
+            <h2>담당자별 조회</h2>
+            <div class="search-controls">
+                <input type="text" id="manager-name" placeholder="담당자명을 입력하세요">
+                <button onclick="searchByManager()">담당자 조회</button>
+            </div>
         </div>
 
-        <div id="capture-area">
-            <h2 id="invoice-title" style="display: none;">&lt;미수금 청구서&gt;</h2>
-            <h3 id="seller-name"></h3>
-            <div class="notice-box" id="notice-box" style="display: none;">
-                 <strong id="notice-seller-name"></strong>(은)는 주식회사 유모스트와의 거래중 아래와 같은 사유로 미수금이 발생하여 입금을 요청하는 바 , <br>
-                 다음의 계좌로 기간 내 입금하여 주시기 바랍니다. <br>
-                <span class="account-number">우리은행 1005-003-519136 주식회사 유모스트</span> &nbsp;&nbsp;// 입금기한 : 미수금공지후 3일이내 입금필수
+        <!-- POS코드 검색 -->
+        <div class="search-container">
+            <h2>POS코드별 조회</h2>
+            <div class="search-controls">
+                <input type="text" id="pos-code" placeholder="POS코드를 입력하세요">
+                <button onclick="searchByPosCode()">POS코드 조회</button>
+                <button id="capture-btn" onclick="captureResults()">화면 캡쳐</button>
             </div>
-            <div class="result-header">
-                <div id="result-message"></div>
-                <div id="total-amount"></div>
-            </div>
+        </div>
+        
+        <!-- 담당자별 결과 -->
+        <div id="manager-results-container">
+            <h2 id="manager-name-header"></h2>
             <div class="table-wrapper">
-                <table id="result-table">
+                <table id="manager-results-table">
                     <thead>
                         <tr>
-                            <th class="col-date">정산년월</th>
-                            <th class="col-item">정산항목</th>
-                            <th class="col-details">상세내용</th>
-                            <th class="col-amount">정산금액</th>
+                            <th>판매처</th>
+                            <th>정산금액 합계</th>
+                            <th>상세보기</th>
                         </tr>
                     </thead>
-                    <tbody>
-                    </tbody>
+                    <tbody></tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- POS코드별 결과 -->
+        <div id="pos-results-container">
+            <div id="capture-area">
+                <h2 id="seller-name"></h2>
+                <p id="result-message" class="result-message"></p>
+                <div class="table-wrapper">
+                    <table id="results-table">
+                        <thead>
+                            <tr>
+                                <th>정산년월</th>
+                                <th>정산항목</th>
+                                <th>상세내용</th>
+                                <th>정산금액</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div id="totalAmountDiv"></div>
             </div>
         </div>
     </div>
 
     <script>
-        document.getElementById('pos-code-input').addEventListener('keyup', (event) => {
-            if (event.key === 'Enter') search();
-        });
+        let csvData;
 
-        async function search() {
-            const posCode = document.getElementById('pos-code-input').value;
-            const tableBody = document.querySelector("#result-table tbody");
-            const resultMessage = document.getElementById('result-message');
-            const totalAmountDiv = document.getElementById('total-amount');
-            const invoiceTitle = document.getElementById('invoice-title');
-            const sellerNameDiv = document.getElementById('seller-name');
-            const noticeBox = document.getElementById('notice-box');
-            const noticeSellerName = document.getElementById('notice-seller-name');
-            const captureBtn = document.getElementById('capture-btn');
+        // CSV 데이터 로드
+        async function loadCSV() {
+            if (csvData) return csvData;
+            try {
+                const response = await fetch('data.csv');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const text = await response.text();
+                csvData = parseCSV(text);
+                return csvData;
+            } catch (error) {
+                console.error("CSV 로딩 오류:", error);
+                document.getElementById('result-message').innerText = `파일을 불러올 수 없습니다: ${error.message}`;
+                return [];
+            }
+        }
 
-            // 초기화
-            tableBody.innerHTML = "";
-            resultMessage.innerHTML = "";
-            totalAmountDiv.innerHTML = "";
-            invoiceTitle.style.display = 'none';
-            sellerNameDiv.innerHTML = "";
-            noticeBox.style.display = 'none';
-            captureBtn.style.display = 'none';
-            resultMessage.className = "";
-
-            if (!posCode) {
-                alert("POS코드를 입력해주세요.");
+        function parseCSV(text) {
+            const rows = text.split('\n').slice(1);
+            return rows.map(row => {
+                const columns = row.split(',');
+                return {
+                    manager: columns[0]?.trim(),
+                    posCode: columns[1]?.trim(),
+                    seller: columns[2]?.trim(),
+                    date: columns[3]?.trim(),
+                    item: columns[4]?.trim(),
+                    details: columns[5]?.trim(),
+                    amount: parseInt(columns[6], 10) || 0
+                };
+            }).filter(row => row.manager && row.posCode); // 필수 데이터가 있는 행만 필터링
+        }
+        
+        // 담당자별 조회 함수
+        async function searchByManager() {
+            const managerName = document.getElementById('manager-name').value.trim();
+            if (!managerName) {
+                alert('담당자명을 입력해주세요.');
                 return;
             }
 
+            const data = await loadCSV();
+            const managerData = data.filter(row => row.manager === managerName);
+
+            if (managerData.length === 0) {
+                alert('해당 담당자의 데이터가 없습니다.');
+                return;
+            }
+
+            const aggregatedData = managerData.reduce((acc, row) => {
+                if (!acc[row.seller]) {
+                    acc[row.seller] = { totalAmount: 0, posCode: row.posCode };
+                }
+                acc[row.seller].totalAmount += row.amount;
+                return acc;
+            }, {});
+
+            displayManagerResults(managerName, aggregatedData);
+        }
+
+        function displayManagerResults(managerName, aggregatedData) {
+            const managerResultsContainer = document.getElementById('manager-results-container');
+            const posResultsContainer = document.getElementById('pos-results-container');
+            const tableBody = document.getElementById('manager-results-table').querySelector('tbody');
+            
+            document.getElementById('manager-name-header').innerText = `${managerName} 담당 판매처 목록`;
+            tableBody.innerHTML = '';
+
+            for (const seller in aggregatedData) {
+                const row = tableBody.insertRow();
+                const data = aggregatedData[seller];
+                
+                row.insertCell(0).innerText = seller;
+                row.insertCell(1).innerText = `${data.totalAmount.toLocaleString()}원`;
+                
+                const detailCell = row.insertCell(2);
+                const detailButton = document.createElement('button');
+                detailButton.innerText = '상세보기';
+                detailButton.onclick = () => {
+                    document.getElementById('pos-code').value = data.posCode;
+                    searchByPosCode();
+                };
+                detailCell.appendChild(detailButton);
+            }
+
+            managerResultsContainer.style.display = 'block';
+            posResultsContainer.style.display = 'none';
+        }
+
+        // POS코드별 조회 함수
+        async function searchByPosCode() {
+            const posCode = document.getElementById('pos-code').value.trim();
+            if (!posCode) {
+                alert('POS코드를 입력해주세요.');
+                return;
+            }
+            
+            const data = await loadCSV();
+            const filteredData = data.filter(row => row.posCode === posCode);
+            displayPosResults(filteredData);
+        }
+
+        function displayPosResults(filteredData) {
+            const posResultsContainer = document.getElementById('pos-results-container');
+            const managerResultsContainer = document.getElementById('manager-results-container');
+
+            const tableBody = document.getElementById('results-table').querySelector('tbody');
+            const resultMessage = document.getElementById('result-message');
+            const sellerNameDiv = document.getElementById('seller-name');
+            const totalAmountDiv = document.getElementById('totalAmountDiv');
+
+            tableBody.innerHTML = '';
+            resultMessage.innerText = '';
+            sellerNameDiv.innerText = '';
+            totalAmountDiv.innerText = '';
+
             try {
-                const response = await fetch(`/search?pos_code=${posCode}`);
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || `서버가 응답하지 않습니다. (상태 코드: ${response.status})`);
+                if (filteredData.length === 0) {
+                    throw new Error('해당 POS코드의 데이터가 없습니다.');
                 }
-                const data = await response.json();
-
-                if (data.length === 0) {
-                    resultMessage.innerText = `'${posCode}'에 대한 조회 결과가 없습니다.`;
-                    return;
-                }
-
-                const sellerName = data[0]['판매처'];
-                invoiceTitle.style.display = 'block';
+                
+                const sellerName = filteredData[0].seller;
                 sellerNameDiv.innerText = sellerName;
-                noticeSellerName.innerText = sellerName;
-                noticeBox.style.display = 'block';
-                captureBtn.style.display = 'block'; // PC에서는 항상 보이도록 block으로 설정
-
-                resultMessage.innerText = `총 ${data.length}건이 조회되었습니다.`;
-
+                
                 let totalSum = 0;
-                data.forEach(item => {
-                    totalSum += Number(item['정산금액'] || 0);
-                    let row = tableBody.insertRow();
-                    row.insertCell(0).innerText = item['정산년월'];
-                    row.insertCell(1).innerText = item['정산항목'];
-                    row.insertCell(2).innerText = item['상세내용'];
-                    let amountCell = row.insertCell(3);
-                    amountCell.innerText = Number(item['정산금액'] || 0).toLocaleString();
-                    amountCell.style.textAlign = 'right'; // 금액 오른쪽 정렬
-                });
 
+                filteredData.forEach(item => {
+                    let row = tableBody.insertRow();
+                    row.insertCell(0).innerText = item.date;
+                    row.insertCell(1).innerText = item.item;
+                    row.insertCell(2).innerText = item.details;
+                    row.insertCell(3).innerText = item.amount.toLocaleString();
+                    totalSum += item.amount;
+                });
+                
+                resultMessage.innerText = `${sellerName} 조회 결과: 총 ${filteredData.length}건`;
+                resultMessage.className = 'success';
                 totalAmountDiv.innerText = `총 미수금액: ${(totalSum * -1).toLocaleString()}원`;
+
             } catch (error) {
                 console.error("오류 상세 정보:", error);
                 resultMessage.innerText = `오류가 발생했습니다: ${error.message}`;
                 resultMessage.className = 'error';
             }
+            
+            posResultsContainer.style.display = 'block';
+            managerResultsContainer.style.display = 'none';
         }
         
         function captureResults() {
             const captureArea = document.getElementById('capture-area');
             const sellerName = document.getElementById('seller-name').innerText;
             
-            // 캡쳐 전 잠시 스크롤바 없애기
             const wrapper = document.querySelector('.table-wrapper');
             wrapper.style.overflowX = 'visible';
 
@@ -186,7 +263,6 @@
                 link.click();
                 document.body.removeChild(link);
                 
-                // 캡쳐 후 스크롤바 복원
                 wrapper.style.overflowX = 'auto';
             });
         }
