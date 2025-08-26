@@ -22,7 +22,7 @@
         /* 결과 헤더 및 금액 스타일 */
         .result-header { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
         #result-message { font-weight: bold; }
-        .total-amount-display { font-weight: bold; font-size: 1.2em; color: #d93025; text-align: right; margin-top: 1em; }
+        .total-amount-display { font-weight: bold; font-size: 1.2em; color: #d93025; text-align: right; margin-top: 1em; margin-bottom: 1em; }
         
         /* 청구서 스타일 */
         #invoice-title { text-align: center; font-size: 1.8em; font-weight: bold; color: #2c3e50; margin-top: 1.5em; margin-bottom: 0.2em; }
@@ -67,6 +67,7 @@
 
         <div id="manager-results-container">
             <h2 id="manager-name-header"></h2>
+            <div id="manager-total-amount" class="total-amount-display"></div>
             <div class="table-wrapper">
                 <table id="manager-results-table">
                     <thead>
@@ -79,7 +80,6 @@
                     <tbody></tbody>
                 </table>
             </div>
-            <div id="manager-total-amount" class="total-amount-display"></div>
         </div>
 
         <div id="pos-results-container">
@@ -181,11 +181,11 @@
             document.getElementById('manager-name-header').innerText = `${managerName} 담당 판매처 목록`;
             tableBody.innerHTML = '';
 
-            let grandTotal = 0; // 담당별 총 합계를 위한 변수
+            let grandTotal = 0;
 
             for (const seller in aggregatedData) {
                 const data = aggregatedData[seller];
-                grandTotal += data.totalAmount; // 판매처별 합계를 총 합계에 더함
+                grandTotal += data.totalAmount;
                 const row = tableBody.insertRow();
                 row.insertCell(0).innerText = seller;
                 row.insertCell(1).innerText = `${data.totalAmount.toLocaleString()}원`;
@@ -200,7 +200,6 @@
                 detailCell.appendChild(detailButton);
             }
             
-            // 담당별 총 합계 표시
             const totalDiv = document.getElementById('manager-total-amount');
             totalDiv.innerText = `담당 총 합계: ${grandTotal.toLocaleString()}원`;
 
