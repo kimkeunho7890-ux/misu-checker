@@ -34,14 +34,11 @@
         #manager-results-container, #pos-results-container { display: none; } /* 결과 컨테이너 기본 숨김 */
 
         @media (max-width: 768px) {
-            #capture-btn {
-               display: none;
-            }
             body { padding: 0.5em; }
             .container { padding: 1em; }
             h1 { font-size: 1.5em; }
             .search-controls { flex-direction: column; }
-            #capture-btn { display: none; }
+            #capture-btn { display: none !important; }
             table { table-layout: auto; }
             th, td { font-size: 12px; padding: 5px; }
         }
