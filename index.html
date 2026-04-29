@@ -2,25 +2,33 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>미수금 관리</title>
     <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root { --primary: #007bff; --success: #28a745; --danger: #dc3545; }
         body { font-family: 'Malgun Gothic', sans-serif; margin: 0; padding: 20px; background-color: #f4f7f9; }
-        .container { max-width: 900px; margin: 0 auto; }
+        .container { 
+    max-width: 900px; 
+    margin: 0 auto; 
+    width: 100%;       /* 추가: 화면 너비에 맞춤 */
+    padding: 10px;     /* 모바일 여백 최적화 */
+    box-sizing: border-box; 
+}
         
         /* 메인 리스트 테이블 */
         .table-wrapper {
     background: white;
     border-radius: 20px;
-    overflow: hidden;
+    overflow-x: auto;  /* 중요: 테이블이 길어질 경우 가로 스크롤 허용 */
     box-shadow: 0 10px 30px rgba(0,0,0,0.05);
     margin-top: 20px;
+    -webkit-overflow-scrolling: touch; /* iOS 부드러운 스크롤 */
 }
         .table-list {
     width: 100%;
+    min-width: 600px; /* 테이블이 너무 찌그러지지 않게 최소 너비 유지 */
     border-collapse: collapse;
 }
 
