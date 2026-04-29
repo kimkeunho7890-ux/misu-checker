@@ -2,19 +2,16 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=900">
     <title>미수금 관리</title>
     <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root { --primary: #007bff; --success: #28a745; --danger: #dc3545; }
-        body { font-family: 'Malgun Gothic', sans-serif; margin: 0; padding: 20px; background-color: #f4f7f9; }
-        .container { 
-    max-width: 900px; 
-    margin: 0 auto; 
-    width: 100%;       /* 추가: 화면 너비에 맞춤 */
-    padding: 10px;     /* 모바일 여백 최적화 */
-    box-sizing: border-box; 
+        body { min-width: 900px; -webkit-text-size-adjust: none; font-family: 'Malgun Gothic', sans-serif; margin: 0; padding: 20px; background-color: #f4f7f9; }
+        .container {
+    width: 900px; /* max-width 대신 width 사용 */
+    margin: 0 auto;
 }
         
         /* 메인 리스트 테이블 */
