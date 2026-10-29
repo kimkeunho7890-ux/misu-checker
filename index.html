@@ -540,6 +540,10 @@ function saveImage() {
 .nc-sheet .sign{margin-top:16px;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center}
 .nc-sheet .sign .date{font-size:14.5px;letter-spacing:.06em}
 .nc-sheet .sign .who{font-size:16px;font-weight:700;display:flex;align-items:center;gap:14px}
+.nc-sheet .sealwrap{position:relative;display:inline-flex;align-items:center;justify-content:center}
+.nc-sheet .sealimg{position:absolute;left:50%;top:50%;width:78px;height:78px;object-fit:contain;transform:translate(-50%,-50%);pointer-events:none}
+.nc-sheet .sealwrap.has-img .seal{border-color:transparent}
+.nc-sheet .sealwrap.has-img{margin-left:18px}
 .nc-sheet .seal{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:1.5px solid #b3261e;color:#b3261e;border-radius:50%;font-size:12px;font-weight:600}
 .nc-sheet .v{font-weight:600}
 .nc-sheet .hole{background:#fde9e7;color:#b3261e;padding:0 3px;border-radius:2px;font-weight:600}
@@ -635,9 +639,23 @@ const REASONS = { q1:"현금판매 단말기채권의 미입금", q2:"판매정�
 const today = new Date(), TY = today.getFullYear();
 const DEFAULT_ETC = "위탁판매 정산에 따른 정산금 차감분의 미입금";
 let storeName = "";
+// ---------- 도장 이미지 (관리자 페이지에서 Appwrite Storage 'seal' 버킷에 등록) ----------
+const SEAL_BUCKET = "seal", SEAL_FILE_ID = "company_seal";
+let sealData = "";
+async function loadSeal(){
+  try{
+    const st = new Appwrite.Storage(client);
+    const f = await st.getFile(SEAL_BUCKET, SEAL_FILE_ID);
+    const url = st.getFileView(SEAL_BUCKET, SEAL_FILE_ID).toString();
+    const res = await fetch(url + (url.includes("?")?"&":"?") + "t=" + encodeURIComponent(f.$updatedAt));
+    if(!res.ok) throw new Error(res.status);
+    const blob = await res.blob();
+    sealData = await new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = no; fr.readAsDataURL(blob); });
+  }catch(e){ sealData = ""; }
+}
 // 미수 자료에서 사업자번호·대표자명을 찾을 필드 후보 (실제 필드명을 알려주시면 맨 앞에 추가)
-const BIZ_FIELDS = ["biz_no","business_no","business_number","biz_number","biz_num","reg_no","사업자번호"];
-const REP_FIELDS = ["ceo","ceo_name","representative","rep_name","owner","owner_name","대표자","대표자명"];
+const BIZ_FIELDS = ["biz_num","biz_no","business_no","business_number","biz_number","bizno","reg_no","사업자번호"];
+const REP_FIELDS = ["representative","ceo","ceo_name","representative","rep_name","owner","owner_name","대표자","대표자명"];
 function pick(recs, fields){ for(const r of recs){ for(const f of fields){ const v=r[f]; if(v!=null && String(v).trim()) return String(v).trim(); } } return ""; }
 
 // ---------- 유틸 ----------
@@ -728,6 +746,7 @@ window.openCert = function(code){
   document.getElementById("cert-modal").style.display = "block";
   buildAttach(code);
   render();
+  loadSeal().then(render);
   if(document.fonts) document.fonts.ready.then(()=>{ buildAttach(code); fit(); });
 };
 
@@ -825,7 +844,7 @@ function render(){
     <p class="note">※ 입금 시 입금자명은 귀사 상호로 기재하여 주시기 바라며, 본 서면 발송 전 이미 입금하신 경우에는 양해하여 주시기 바랍니다.</p>
     <div class="sign">
       <div class="date">${fmtDate(s.w)}</div>
-      <div class="who">발신인 : ${SENDER.name} <span class="seal">(인)</span></div>
+      <div class="who">발신인 : ${SENDER.name} <span class="sealwrap${sealData?" has-img":""}"><span class="seal">(인)</span>${sealData?`<img class="sealimg" src="${sealData}" alt="">`:""}</span></div>
     </div>`;
   fit();
   return s;
