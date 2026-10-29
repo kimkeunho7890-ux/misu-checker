@@ -6,6 +6,8 @@
     <title>미수금 관리</title>
     <script src="https://cdn.jsdelivr.net/npm/appwrite@13.0.1"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700;900&display=swap">
     <style>
         :root { --primary: #007bff; --success: #28a745; --danger: #dc3545; }
         body { min-width: 900px; -webkit-text-size-adjust: none; font-family: 'Malgun Gothic', sans-serif; margin: 0; padding: 20px; background-color: #f4f7f9; }
@@ -402,7 +404,8 @@ function searchByManager() {
         const depUI = item.dAmt === 0 ? `<div class="status-cell"><span style="color:#ddd;">0</span><div class="patch-unpaid">미입금!</div></div>` : item.dAmt.toLocaleString();
         const actionUI = item.balance === 0 
             ? `<div class="patch-paid-done">입금<br>완료</div>` 
-            : `<button class="btn-detail" onclick="openBill('${item.pos_code}')">상세보기</button>`;
+            : `<button class="btn-detail" onclick="openBill('${item.pos_code}')">상세보기</button>`
+              + (item.balance < 0 ? `<button class="btn-detail btn-cert" onclick="openCert('${item.pos_code}')">내용증명</button>` : ``);
 
         html += `<tr>
             <td>${item.store_name}</td>
@@ -465,5 +468,371 @@ function saveImage() {
     });
 }
 </script>
+<!-- ===================== 내용증명 작성기 (추가) ===================== -->
+<style id="nc-style">
+#cert-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1100;overflow-y:auto;padding:30px 0}
+#cert-modal .nc-box{background:#f4f6f9;width:96%;max-width:1240px;margin:0 auto;border-radius:8px;padding:20px 22px 28px;color:#1d2430;font-family:'Malgun Gothic',sans-serif;font-size:14px;line-height:1.5;box-sizing:border-box}
+#cert-modal *{box-sizing:border-box}
+.nc-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.nc-head h3{margin:0;font-size:20px}
+.nc-head h3 small{font-size:13px;color:#5d6676;font-weight:normal;margin-left:8px}
+.nc-actions{display:flex;gap:8px;align-items:center}
+.nc-btn{font-family:inherit;font-size:14px;cursor:pointer;border-radius:6px;padding:9px 16px;border:1px solid #cfd5de;background:#fff;color:#1d2430;font-weight:600}
+.nc-btn:hover{border-color:#23406e}
+.nc-btn.primary{background:#23406e;border-color:#23406e;color:#fff}
+.nc-btn:disabled{opacity:.6;cursor:wait}
+.nc-close{font-size:32px;cursor:pointer;line-height:1;padding:0 4px;color:#333}
+.nc-grid{display:grid;grid-template-columns:380px minmax(0,1fr);gap:18px;align-items:start}
+.nc-form{display:flex;flex-direction:column;gap:12px}
+.nc-form fieldset{margin:0;border:1px solid #d7dbe2;border-radius:8px;background:#fff;padding:12px 14px 14px;display:flex;flex-direction:column;gap:9px;min-width:0}
+.nc-form legend{font-weight:700;font-size:13px;padding:0 6px;color:#23406e}
+.nc-row{display:flex;flex-direction:column;gap:3px;min-width:0}
+.nc-row>label,.nc-lbl{font-size:12.5px;color:#5d6676}
+.nc-req::after{content:" *";color:#b3261e}
+#cert-modal input[type=text],#cert-modal input[type=tel],#cert-modal select{width:100%;font-family:inherit;font-size:14px;padding:7px 9px;border:1px solid #d7dbe2;border-radius:6px;background:#f8fafc;color:#1d2430}
+#cert-modal input:focus,#cert-modal select:focus{outline:2px solid #23406e;outline-offset:1px;background:#fff}
+#nc-amt{text-align:right}
+.nc-two{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.nc-dates{display:flex;gap:5px;align-items:center}
+.nc-dates select{width:auto!important;flex:1 1 70px}
+.nc-dates span{color:#5d6676;font-size:13px;white-space:nowrap}
+.nc-fixed{font-size:12.5px;color:#5d6676;background:#f1f3f6;border-radius:6px;padding:7px 9px}
+.nc-fixed b{color:#1d2430}
+.nc-hint{font-size:12px;color:#5d6676}
+.nc-auto{font-size:12px;background:#e4eaf4;color:#23406e;border-radius:4px;padding:1px 6px;font-weight:700;margin-left:4px}
+.nc-calc{font-size:13px;background:#e4eaf4;border-radius:6px;padding:7px 9px}
+.nc-q{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px dashed #d7dbe2}
+.nc-q:first-of-type{border-top:0}
+.nc-q .qt{font-size:13px;min-width:0}
+.nc-q .qt small{display:block;color:#5d6676;font-size:11.5px;margin-top:2px}
+.nc-q .qt small.ev{color:#23406e}
+.nc-yn{display:inline-flex;border:1px solid #d7dbe2;border-radius:6px;overflow:hidden;flex:none}
+.nc-yn input{position:absolute;opacity:0;pointer-events:none}
+.nc-yn label{padding:5px 13px;font-size:13px;font-weight:700;cursor:pointer;color:#5d6676;background:#f1f3f6}
+.nc-yn input:checked+label{background:#23406e;color:#fff}
+.nc-msg{border-radius:6px;padding:9px 12px;font-size:13px;background:#fff3e6;color:#8a4b00}
+.nc-msg.ok{background:#e4eaf4;color:#1d2430}
+.nc-prev{position:sticky;top:10px;min-width:0}
+.nc-prev .cap{display:flex;justify-content:space-between;margin-bottom:6px;color:#5d6676;font-size:12px}
+.nc-fit{width:100%;position:relative;overflow:hidden}
+/* ---- A4 문서 ---- */
+.nc-sheet{width:794px;min-height:1123px;transform-origin:top left;background:#fff;color:#111418;box-shadow:0 1px 3px rgba(0,0,0,.15),0 8px 24px rgba(0,0,0,.1);
+  padding:44px 64px 36px;font-family:"Noto Serif KR","Batang",serif;font-size:12.5px;line-height:1.56;word-break:keep-all;overflow-wrap:anywhere;text-align:left}
+.nc-sheet h2{font-size:30px;font-weight:900;text-align:center;letter-spacing:.6em;margin:0 0 14px;padding-left:.6em;color:#111418}
+.nc-sheet .party{width:100%;border-collapse:collapse;margin-bottom:8px;font-size:12.2px}
+.nc-sheet .party th,.nc-sheet .party td{border:1px solid #111418;padding:2px 10px;vertical-align:middle;text-align:left;color:#111418;background:none}
+.nc-sheet .party th.side{width:70px;text-align:center;font-weight:700;letter-spacing:.15em;white-space:nowrap;background:#f3f4f6}
+.nc-sheet .party th.k{width:92px;font-weight:600;background:#f9fafb}
+.nc-sheet .subject{margin:12px 0 10px;padding:8px 0;border-top:2px solid #111418;border-bottom:1px solid #111418;font-size:14.5px}
+.nc-sheet .subject b{margin-right:10px}
+.nc-sheet ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
+.nc-sheet ol>li{display:grid;grid-template-columns:22px 1fr}
+.nc-sheet ol>li>.n{font-weight:700}
+.nc-sheet .claim{margin:4px 0 0;padding:0;list-style:none}
+.nc-sheet .claim li{padding-left:14px;position:relative}
+.nc-sheet .claim li::before{content:"·";position:absolute;left:2px;font-weight:700}
+.nc-sheet .claim .k{display:inline-block;min-width:104px}
+.nc-sheet .acct{margin:10px 0 0 22px;border:1px solid #111418;padding:8px 14px;display:grid;grid-template-columns:auto 1fr;column-gap:16px;font-size:13px}
+.nc-sheet .acct .t{grid-column:1/-1;font-weight:700;margin-bottom:2px}
+.nc-sheet .acct dt{color:#3b4250}
+.nc-sheet .acct dd{margin:0}
+.nc-sheet .note{margin:8px 0 0 22px;font-size:12px;color:#3b4250}
+.nc-sheet .sign{margin-top:16px;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center}
+.nc-sheet .sign .date{font-size:14.5px;letter-spacing:.06em}
+.nc-sheet .sign .who{font-size:16px;font-weight:700;display:flex;align-items:center;gap:14px}
+.nc-sheet .seal{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border:1.5px solid #b3261e;color:#b3261e;border-radius:50%;font-size:12px;font-weight:600}
+.nc-sheet .v{font-weight:600}
+.nc-sheet .hole{background:#fde9e7;color:#b3261e;padding:0 3px;border-radius:2px;font-weight:600}
+.nc-sheet.exporting{box-shadow:none}
+.nc-sheet.exporting .hole{background:none;color:#111418}
+.btn-cert{margin-left:6px;color:#b3261e;border-color:#f1c4c0}
+.btn-cert:hover{background:#fdf1f0;border-color:#b3261e}
+</style>
+
+<div id="cert-modal">
+  <div class="nc-box">
+    <div class="nc-head">
+      <h3>내용증명 작성<small id="nc-title-store"></small></h3>
+      <div class="nc-actions">
+        <button type="button" class="nc-btn" id="nc-print">인쇄</button>
+        <button type="button" class="nc-btn primary" id="nc-pdf">PDF로 저장</button>
+        <span class="nc-close" id="nc-close" title="닫기">&times;</span>
+      </div>
+    </div>
+    <div class="nc-grid">
+      <form class="nc-form" id="nc-form" autocomplete="off" onsubmit="return false">
+        <div class="nc-msg" id="nc-msg" hidden></div>
+        <fieldset>
+          <legend>수신인</legend>
+          <div class="nc-two">
+            <div class="nc-row"><label class="nc-req" for="nc-rName">상호</label><input type="text" id="nc-rName"></div>
+            <div class="nc-row"><label class="nc-req" for="nc-rRep">대표자</label><input type="text" id="nc-rRep"></div>
+          </div>
+          <div class="nc-row"><label class="nc-req" for="nc-rBiz">사업자번호</label><input type="text" id="nc-rBiz" placeholder="000-00-00000" maxlength="12"></div>
+          <div class="nc-row"><label class="nc-req" for="nc-rAddr">주소</label><input type="text" id="nc-rAddr" placeholder="도로명 주소"></div>
+          <div class="nc-row"><label class="nc-req" for="nc-rTel">전화번호</label><input type="tel" id="nc-rTel" placeholder="010-0000-0000" maxlength="13"></div>
+        </fieldset>
+        <fieldset>
+          <legend>발신인</legend>
+          <div class="nc-fixed"><b>주식회사 유모스트</b> · 217-81-49594<br>울산광역시 중구 종가로 635 (약사동), 3층 유모스트</div>
+          <div class="nc-two">
+            <div class="nc-row"><label class="nc-req" for="nc-sMgr">담당자 이름</label><input type="text" id="nc-sMgr"></div>
+            <div class="nc-row"><label class="nc-req" for="nc-sTel">연락처</label><input type="tel" id="nc-sTel" placeholder="010-0000-0000" maxlength="13"></div>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>미수금 발생 사유 <span class="nc-auto">자동판정</span></legend>
+          <div class="nc-q"><div class="qt">모바일정산 항목에 마이너스 금액이 있습니까?<small>Y → 현금판매 단말기채권의 미입금</small><small class="ev" id="nc-ev1"></small></div>
+            <div class="nc-yn"><input type="radio" name="nc-q1" id="nc-q1y" value="Y"><label for="nc-q1y">Y</label><input type="radio" name="nc-q1" id="nc-q1n" value="N" checked><label for="nc-q1n">N</label></div></div>
+          <div class="nc-q"><div class="qt">반환정산(‘반환’·‘환수’로 끝나는) 항목이 있습니까?<small>Y → 판매정책 위반에 따른 수수료반환</small><small class="ev" id="nc-ev2"></small></div>
+            <div class="nc-yn"><input type="radio" name="nc-q2" id="nc-q2y" value="Y"><label for="nc-q2y">Y</label><input type="radio" name="nc-q2" id="nc-q2n" value="N" checked><label for="nc-q2n">N</label></div></div>
+          <div class="nc-q"><div class="qt">단말기 분실에 대한 항목이 있습니까?<small>Y → 위탁 단말기(재고)의 분실 및 미반환</small><small class="ev" id="nc-ev3"></small></div>
+            <div class="nc-yn"><input type="radio" name="nc-q3" id="nc-q3y" value="Y"><label for="nc-q3y">Y</label><input type="radio" name="nc-q3" id="nc-q3n" value="N" checked><label for="nc-q3n">N</label></div></div>
+          <div class="nc-row" style="border-top:1px dashed #d7dbe2;padding-top:8px"><label for="nc-rEtc">기타 사유 (직접 입력, 쉼표로 구분)</label><input type="text" id="nc-rEtc"></div>
+        </fieldset>
+        <fieldset>
+          <legend>청구내역 <span class="nc-auto">자동작성</span></legend>
+          <div class="nc-row"><span class="nc-lbl nc-req">미수금 발생기간</span>
+            <div class="nc-dates"><select id="nc-pSy"></select><span>년</span><select id="nc-pSm"></select><span>월 ~</span></div>
+            <div class="nc-dates"><select id="nc-pEy"></select><span>년</span><select id="nc-pEm"></select><span>월</span></div>
+          </div>
+          <div class="nc-row"><label class="nc-req" for="nc-amt">미수금 총액 (입금반영 잔액, 원)</label><input type="text" id="nc-amt" inputmode="numeric"></div>
+          <div class="nc-calc" id="nc-calc"></div>
+        </fieldset>
+        <fieldset>
+          <legend>작성일자</legend>
+          <div class="nc-dates"><select id="nc-wY"></select><span>년</span><select id="nc-wM"></select><span>월</span><select id="nc-wD"></select><span>일</span></div>
+          <div class="nc-hint">‘현재까지 미지급’ 날짜와 입금기한(작성일 + 7일)이 자동 계산됩니다.</div>
+        </fieldset>
+      </form>
+      <section class="nc-prev">
+        <div class="cap"><span>A4 미리보기</span><span>분홍색 = 미입력</span></div>
+        <div class="nc-fit" id="nc-fit"><div class="nc-sheet" id="nc-sheet"></div></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+const $ = id => document.getElementById("nc-"+id);
+const SENDER = { name:"주식회사 유모스트", biz:"217-81-49594", addr:"울산광역시 중구 종가로 635 (약사동), 3층 유모스트" };
+const ACCOUNT = { bank:"우리은행", no:"1005-003-519136", holder:"(주)유모스트" };
+const REASONS = { q1:"현금판매 단말기채권의 미입금", q2:"판매정책 위반에 따른 수수료반환", q3:"위탁 단말기(재고)의 분실 및 미반환" };
+const today = new Date(), TY = today.getFullYear();
+let storeName = "";
+
+// ---------- 유틸 ----------
+function fill(sel, from, to, val){ sel.innerHTML=""; for(let i=from;i<=to;i++){ const o=document.createElement("option"); o.value=i; o.textContent=String(i).padStart(2,"0"); sel.appendChild(o);} sel.value=Math.min(Math.max(val,from),to); }
+const pad = n => String(n).padStart(2,"0");
+const fmtDate = d => `${d.getFullYear()}년 ${pad(d.getMonth()+1)}월 ${pad(d.getDate())}일`;
+const comma = n => n.toLocaleString("ko-KR");
+function korAmount(n){ if(!n) return "영"; const d=["","일","이","삼","사","오","육","칠","팔","구"], s=["","십","백","천"], b=["","만","억","조"]; let out="",g=0;
+  while(n>0){ const p=n%10000; n=Math.floor(n/10000); if(p){ let t=""; const ds=String(p).padStart(4,"0"); for(let i=0;i<4;i++){ const v=+ds[i]; if(v) t+=d[v]+s[3-i]; } out=t+b[g]+out; } g++; } return out; }
+function bizFmt(v){ v=v.replace(/\D/g,"").slice(0,10); return v.length<4?v: v.length<6? v.slice(0,3)+"-"+v.slice(3) : v.slice(0,3)+"-"+v.slice(3,5)+"-"+v.slice(5); }
+function telFmt(v){ v=v.replace(/\D/g,"").slice(0,11);
+  if(v.startsWith("02")){ if(v.length<3) return v; if(v.length<6) return v.slice(0,2)+"-"+v.slice(2); if(v.length<10) return v.slice(0,2)+"-"+v.slice(2,5)+"-"+v.slice(5); return v.slice(0,2)+"-"+v.slice(2,6)+"-"+v.slice(6,10); }
+  if(v.length<4) return v; if(v.length<8) return v.slice(0,3)+"-"+v.slice(3); if(v.length<11) return v.slice(0,3)+"-"+v.slice(3,6)+"-"+v.slice(6); return v.slice(0,3)+"-"+v.slice(3,7)+"-"+v.slice(7); }
+const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const val = (s, hole) => s ? `<span class="v">${esc(s)}</span>` : `<span class="hole">[${hole}]</span>`;
+function setYN(q, y){ document.getElementById(`nc-${q}${y?"y":"n"}`).checked = true; }
+
+// "25년 09월" / "22년 5월" / "2025-09" / "202509" → {y,m}
+function parseMonth(s){
+  s = String(s||"").trim(); let m;
+  if((m = s.match(/(\d{2,4})\s*년\s*(\d{1,2})\s*월/))) return {y: m[1].length===2 ? 2000+ +m[1] : +m[1], m:+m[2]};
+  if((m = s.match(/^(\d{4})[-./]?(\d{1,2})$/))) return {y:+m[1], m:+m[2]};
+  return null;
+}
+
+// ---------- 자동 판정 ----------
+function analyze(code){
+  const recs = allMisu.filter(r => r.pos_code === code);
+  const item = r => String(r.item||"").replace(/\s+/g,"");
+  const amt  = r => Number(r.amount)||0;
+
+  const mobileNeg = recs.filter(r => item(r).includes("모바일정산") && amt(r) < 0);
+  const refund    = recs.filter(r => /(반환|환수)$/.test(item(r).replace(/[)\]]+$/,"")));
+  const lost      = recs.filter(r => (String(r.item||"")+String(r.details||"")).includes("분실"));
+
+  // 발생기간: 입금 항목을 제외한 정산년월의 최소~최대
+  const months = recs.filter(r => !item(r).includes("입금")).map(r => parseMonth(r.settlement_month)).filter(Boolean)
+                     .map(o => o.y*12 + (o.m-1)).sort((a,b)=>a-b);
+
+  // 입금반영 잔액 (목록의 '잔액'과 동일한 계산)
+  const total = recs.reduce((s,r)=>s+amt(r),0);
+  const dep = allDeposits.find(d => d.pos_code === code);
+  const balance = total + (dep ? (Number(dep.amount)||0) : 0);
+
+  const names = arr => [...new Set(arr.map(r => String(r.item||"").trim()))].slice(0,3).join(", ") + (new Set(arr.map(r=>r.item)).size>3?" 외":"");
+  return { recs, mobileNeg, refund, lost, months, balance, names };
+}
+
+// ---------- 열기 ----------
+window.openCert = function(code){
+  const a = analyze(code);
+  if(!a.recs.length) return;
+  storeName = a.recs[0].store_name || "";
+  $("title-store").textContent = " · " + storeName;
+
+  // 수신인: 상호만 판매점명으로 채우고 나머지는 비움
+  $("rName").value = storeName.replace(/[_\s]*[A-Z]?\d{5,}$/,"").trim();
+  ["rRep","rBiz","rAddr","rTel","rEtc"].forEach(id => $(id).value = "");
+
+  // 사유 자동판정
+  setYN("q1", a.mobileNeg.length>0); setYN("q2", a.refund.length>0); setYN("q3", a.lost.length>0);
+  $("ev1").textContent = a.mobileNeg.length ? `근거: 모바일정산 마이너스 ${a.mobileNeg.length}건` : "근거: 해당 항목 없음";
+  $("ev2").textContent = a.refund.length ? `근거: ${a.refund.length}건 (${a.names(a.refund)})` : "근거: 해당 항목 없음";
+  $("ev3").textContent = a.lost.length ? `근거: ${a.lost.length}건 (${a.names(a.lost)})` : "근거: 해당 항목 없음";
+
+  // 날짜 드롭다운
+  const minY = a.months.length ? Math.floor(a.months[0]/12) : TY;
+  const y0 = Math.min(minY, TY-4), y1 = TY+1;
+  const s = a.months.length ? a.months[0] : TY*12+today.getMonth();
+  const e = a.months.length ? a.months[a.months.length-1] : s;
+  fill($("pSy"),y0,y1,Math.floor(s/12)); fill($("pSm"),1,12,s%12+1);
+  fill($("pEy"),y0,y1,Math.floor(e/12)); fill($("pEm"),1,12,e%12+1);
+  fill($("wY"),y0,y1,TY); fill($("wM"),1,12,today.getMonth()+1); fillDays(today.getDate());
+
+  // 총액 = 입금반영 잔액 (마이너스 = 미수)
+  $("amt").value = a.balance < 0 ? comma(Math.abs(a.balance)) : "";
+
+  hideMsg();
+  if(a.balance >= 0) showMsg("이 판매점은 입금반영 잔액에 미수금이 없습니다. 총액을 확인해 주세요.");
+  document.getElementById("cert-modal").style.display = "block";
+  render();
+};
+function fillDays(keep){ const n=new Date(+$("wY").value, +$("wM").value, 0).getDate(); const cur = keep || +$("wD").value || today.getDate(); fill($("wD"),1,n,Math.min(cur,n)); }
+function closeCert(){ document.getElementById("cert-modal").style.display = "none"; }
+$("close").addEventListener("click", closeCert);
+document.getElementById("cert-modal").addEventListener("click", e => { if(e.target.id==="cert-modal") closeCert(); });
+
+// ---------- 상태 / 렌더 ----------
+function state(){
+  const amt = +$("amt").value.replace(/\D/g,"") || 0;
+  const w = new Date(+$("wY").value, +$("wM").value-1, +$("wD").value);
+  const due = new Date(w); due.setDate(due.getDate()+7);
+  const sy=+$("pSy").value, sm=+$("pSm").value, ey=+$("pEy").value, em=+$("pEm").value;
+  const reasons = ["q1","q2","q3"].filter(q => document.querySelector(`input[name=nc-${q}]:checked`).value==="Y").map(q=>REASONS[q]);
+  $("rEtc").value.split(/[,，]/).map(t=>t.trim().replace(/\s*등$/,"")).filter(Boolean).forEach(t=>reasons.push(t));
+  return { rName:$("rName").value.trim(), rRep:$("rRep").value.trim(), rBiz:$("rBiz").value.trim(), rAddr:$("rAddr").value.trim(), rTel:$("rTel").value.trim(),
+    sMgr:$("sMgr").value.trim(), sTel:$("sTel").value.trim(), amt, w, due, payBy:new Date(ey, em+1, 0), reasons,
+    periodOk:(ey*12+em)>=(sy*12+sm), period:`${sy}년 ${pad(sm)}월 ~ ${ey}년 ${pad(em)}월` };
+}
+function render(){
+  const s = state();
+  const amtTxt = s.amt ? `금 ${korAmount(s.amt)}원정 (₩${comma(s.amt)})` : "";
+  $("calc").innerHTML = `당초 지급기일 <b>${fmtDate(s.payBy)}</b> (마지막 발생월 다음달 말일)<br>입금 촉구기한 <b>${fmtDate(s.due)}</b> (작성일 + 7일)` + (s.amt?`<br>${esc(amtTxt)}`:"");
+  const reasonTxt = s.reasons.length ? `<span class="v">${esc(s.reasons.join(", "))} 등</span>` : `<span class="hole">[발생 사유를 Y로 선택하거나 기타 사유 입력]</span>`;
+  $("sheet").innerHTML = `
+    <h2>내용증명서</h2>
+    <table class="party">
+      <tr><th class="side" rowspan="5">수신인</th><th class="k">상호</th><td>${val(s.rName,"수신인 상호")}</td></tr>
+      <tr><th class="k">대표자</th><td>${val(s.rRep,"대표자")}</td></tr>
+      <tr><th class="k">사업자번호</th><td>${val(s.rBiz,"사업자번호")}</td></tr>
+      <tr><th class="k">주소</th><td>${val(s.rAddr,"수신인 주소")}</td></tr>
+      <tr><th class="k">전화번호</th><td>${val(s.rTel,"전화번호")}</td></tr>
+    </table>
+    <table class="party">
+      <tr><th class="side" rowspan="5">발신인</th><th class="k">성명(상호)</th><td>${SENDER.name}</td></tr>
+      <tr><th class="k">사업자번호</th><td>${SENDER.biz}</td></tr>
+      <tr><th class="k">주소</th><td>${SENDER.addr}</td></tr>
+      <tr><th class="k">담당자</th><td>${val(s.sMgr,"담당자 이름")}</td></tr>
+      <tr><th class="k">연락처</th><td>${val(s.sTel,"연락처")}</td></tr>
+    </table>
+    <div class="subject"><b>제 목 :</b>미수금 지급 촉구의 건</div>
+    <ol>
+      <li><span class="n">1.</span><span>당사는 LG유플러스 대리점으로서, 귀하(사)와 유·무선 통신상품 위탁판매계약을 체결하였습니다.</span></li>
+      <li><span class="n">2.</span><span>귀하(사)는 당사와 체결한 위탁판매계약에 따라 거래함에 있어 ${reasonTxt}의 사유로 발생한 미수금을 <span class="v">${fmtDate(s.w)}</span> 현재까지 지급하지 않고 있습니다.</span></li>
+      <li><span class="n">3.</span><span>청구내역
+        <ul class="claim">
+          <li><span class="k">미수금 발생기간</span>: ${s.periodOk ? `<span class="v">${s.period}</span>` : `<span class="hole">[기간 확인: 시작월이 종료월보다 늦음]</span>`}</li>
+          <li><span class="k">미수금 총액</span>: ${val(amtTxt,"미수금 총액")}</li>
+          <li><span class="k">당초 지급기일</span>: <span class="v">${fmtDate(s.payBy)}</span></li>
+        </ul></span></li>
+      <li><span class="n">4.</span><span>귀하(사)는 당초 약정된 지급기일로부터 상당 기간이 경과하였고 당사의 지속적인 지급 요청에도 불구하고 미수금 지급을 계속 지연하고 있습니다. 이는 명백한 계약위반에 해당하며, 당사는 위탁판매계약에 따른 미수금 지급청구권 및 채무불이행에 따른 손해배상청구권이 있음을 고지합니다.</span></li>
+      <li><span class="n">5.</span><span>따라서 당사는 본 내용증명을 통하여 <span class="v">${fmtDate(s.due)}</span>까지 위 미수금 전액을 아래 계좌로 입금하여 주실 것을 엄중히 촉구합니다.</span></li>
+      <li><span class="n">6.</span><span>만약 위 기일 내에 미수금이 입금되지 않을 경우, 당사는 부득이하게 보증보험금 청구 및 법적 절차(지급명령 신청, 민사소송 제기, 가압류 및 강제집행 등)에 착수할 예정입니다. 보증보험금이 지급되면 보증보험사가 귀하(사)에게 구상권을 행사하게 되며, 이에 따른 신용상 불이익이 발생할 수 있습니다. 또한 이로 인해 발생하는 소송비용(변호사 보수, 인지대, 송달료 등 포함) 및 지연손해금(약정 연체이율 또는 관계 법령에 따른 법정이율) 등 모든 부대비용에 대한 책임은 전적으로 귀하(사)에 있음을 알려드립니다.</span></li>
+      <li><span class="n">7.</span><span>본 서면은 민법 제174조에 따른 최고(催告)에 해당함을 아울러 알려드립니다.</span></li>
+    </ol>
+    <dl class="acct">
+      <div class="t">- 입금계좌</div>
+      <dt>은 행 명</dt><dd>${ACCOUNT.bank}</dd>
+      <dt>계좌번호</dt><dd>${ACCOUNT.no}</dd>
+      <dt>예 금 주</dt><dd>${ACCOUNT.holder}</dd>
+      <dt>금 액</dt><dd>${s.amt ? `<span class="v">${comma(s.amt)}원</span>` : `<span class="hole">[금액]</span>`}</dd>
+    </dl>
+    <p class="note">※ 입금 시 입금자명은 귀사 상호로 기재하여 주시기 바라며, 본 서면 발송 전 이미 입금하신 경우에는 양해하여 주시기 바랍니다.</p>
+    <div class="sign">
+      <div class="date">${fmtDate(s.w)}</div>
+      <div class="who">발신인 : ${SENDER.name} <span class="seal">(인)</span></div>
+    </div>`;
+  fit();
+  return s;
+}
+function fit(){ const box=$("fit"), sh=$("sheet"); if(!box.clientWidth) return; const sc=Math.min(1, box.clientWidth/794); sh.style.transform=`scale(${sc})`; box.style.height=(sh.offsetHeight*sc)+"px"; }
+if(window.ResizeObserver) new ResizeObserver(fit).observe($("fit"));
+
+// ---------- 입력 ----------
+$("rBiz").addEventListener("input", e=>{ e.target.value=bizFmt(e.target.value); });
+["rTel","sTel"].forEach(id=>$(id).addEventListener("input", e=>{ e.target.value=telFmt(e.target.value); }));
+$("amt").addEventListener("input", e=>{ const n=e.target.value.replace(/\D/g,"").slice(0,13); e.target.value=n?comma(+n):""; });
+["wY","wM"].forEach(id=>$(id).addEventListener("change", ()=>fillDays()));
+["pSy","pSm"].forEach(id=>$(id).addEventListener("change", ()=>{ const s=+$("pSy").value*12+ +$("pSm").value, e=+$("pEy").value*12+ +$("pEm").value; if(e<s){ $("pEy").value=$("pSy").value; $("pEm").value=$("pSm").value; } }));
+$("form").addEventListener("input", ()=>{ render(); saveSender(); hideMsg(); });
+$("form").addEventListener("change", ()=>{ render(); hideMsg(); });
+function saveSender(){ try{ localStorage.setItem("ncert.sender", JSON.stringify({m:$("sMgr").value,t:$("sTel").value})); }catch(e){} }
+try{ const v=JSON.parse(localStorage.getItem("ncert.sender")||"null"); if(v){ $("sMgr").value=v.m||""; $("sTel").value=v.t||""; } }catch(e){}
+
+function showMsg(t, ok){ const m=$("msg"); m.innerHTML=t; m.className="nc-msg"+(ok?" ok":""); m.hidden=false; }
+function hideMsg(){ $("msg").hidden=true; }
+function validate(s){ const miss=[];
+  if(!s.rName) miss.push("수신인 상호"); if(!s.rRep) miss.push("수신인 대표자");
+  if(!s.rBiz) miss.push("수신인 사업자번호"); else if(s.rBiz.replace(/\D/g,"").length!==10) miss.push("수신인 사업자번호(10자리)");
+  if(!s.rAddr) miss.push("수신인 주소");
+  if(!s.rTel) miss.push("수신인 전화번호"); else if(s.rTel.replace(/\D/g,"").length<9) miss.push("수신인 전화번호(자릿수 확인)");
+  if(!s.sMgr) miss.push("담당자 이름"); if(!s.sTel) miss.push("연락처");
+  if(!s.amt) miss.push("미수금 총액"); if(!s.reasons.length) miss.push("미수금 발생 사유(최소 1개)");
+  if(!s.periodOk) miss.push("발생기간(시작월이 종료월보다 늦음)");
+  return miss; }
+function checkOk(){ const s=render(); const miss=validate(s); if(miss.length){ showMsg("입력이 필요한 항목: "+miss.join(", ")); $("msg").scrollIntoView({block:"nearest"}); return null; } return s; }
+
+// ---------- 인쇄 ----------
+$("print").addEventListener("click", ()=>{
+  if(!checkOk()) return;
+  const w = window.open("", "_blank"); if(!w){ showMsg("팝업이 차단되었습니다. 브라우저에서 이 사이트의 팝업을 허용해 주세요."); return; }
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>내용증명_${esc(storeName)}</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700;900&display=swap">
+    <style>${document.getElementById("nc-style").textContent}@page{size:A4;margin:0}body{margin:0;background:#fff}.nc-sheet{box-shadow:none;transform:none!important}</style></head>
+    <body><div class="nc-sheet exporting">${$("sheet").innerHTML}</div><script>(document.fonts?document.fonts.ready:Promise.resolve()).then(function(){setTimeout(function(){print();},200);});<\/script></body></html>`);
+  w.document.close();
+});
+
+// ---------- PDF ----------
+$("pdf").addEventListener("click", async ()=>{
+  const s = checkOk(); if(!s) return;
+  const btn=$("pdf"); btn.disabled=true; btn.textContent="PDF 만드는 중…";
+  const clone=$("sheet").cloneNode(true); clone.removeAttribute("id"); clone.classList.add("exporting"); clone.style.transform="none";
+  const host=document.createElement("div"); host.style.cssText="position:fixed;left:-10000px;top:0;width:794px;"; host.appendChild(clone); document.body.appendChild(host);
+  try{
+    if(document.fonts) await document.fonts.ready;
+    const canvas = await html2canvas(clone,{scale:2,backgroundColor:"#ffffff",logging:false});
+    const pdf = new window.jspdf.jsPDF({unit:"mm",format:"a4",orientation:"portrait"});
+    const pageH = Math.floor(canvas.width*297/210);
+    for(let y=0,p=0; y<canvas.height; y+=pageH,p++){
+      const h=Math.min(pageH, canvas.height-y); if(h<40 && p>0) break;
+      const c=document.createElement("canvas"); c.width=canvas.width; c.height=h; const ctx=c.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,c.width,h); ctx.drawImage(canvas,0,-y);
+      if(p>0) pdf.addPage(); pdf.addImage(c.toDataURL("image/jpeg",0.95),"JPEG",0,0,210,h*210/canvas.width);
+    }
+    const d=s.w, ymd=`${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
+    pdf.save(`내용증명_${s.rName.replace(/[\\/:*?"<>|]/g,"").slice(0,40)}_${ymd}.pdf`);
+    showMsg("PDF를 저장했습니다.", true);
+  }catch(e){ showMsg("PDF를 만들지 못했습니다: "+esc(e && e.message || e)); }
+  finally{ host.remove(); btn.disabled=false; btn.textContent="PDF로 저장"; }
+});
+})();
+</script>
+<!-- ===================== /내용증명 작성기 ===================== -->
+
 </body>
 </html>
