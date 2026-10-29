@@ -545,6 +545,19 @@ function saveImage() {
 .nc-sheet .hole{background:#fde9e7;color:#b3261e;padding:0 3px;border-radius:2px;font-weight:600}
 .nc-sheet.exporting{box-shadow:none}
 .nc-sheet.exporting .hole{background:none;color:#111418}
+.nc-stack{width:794px;transform-origin:top left;display:flex;flex-direction:column;gap:16px}
+.nc-sheet.att{height:1123px;min-height:0;padding:40px 48px 30px;display:flex;flex-direction:column;font-size:12px}
+.nc-sheet.att h4{font-size:18px;font-weight:900;margin:0 0 6px;letter-spacing:.04em}
+.nc-sheet.att .meta{display:flex;justify-content:space-between;gap:12px;font-size:12px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid #111418}
+.nc-sheet.att table{width:100%;border-collapse:collapse;table-layout:fixed;font-family:'Malgun Gothic',sans-serif;font-size:11px}
+.nc-sheet.att th{background:#444;color:#fff;padding:6px 4px;border:1px solid #333;font-weight:700}
+.nc-sheet.att td{border:1px solid #bbb;padding:4px 6px;text-align:center;line-height:1.35;color:#111418}
+.nc-sheet.att td.d{text-align:left;overflow-wrap:anywhere}
+.nc-sheet.att td.a{text-align:right;font-weight:700;white-space:nowrap}
+.nc-sheet.att tr.dep td{color:#c62828}
+.nc-sheet.att tr.tot td{background:#fffde7;font-weight:700;font-size:12px}
+.nc-sheet.att .pno{margin-top:auto;padding-top:8px;text-align:center;font-size:11px;color:#555}
+.nc-sheet,.nc-sheet *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .btn-cert{margin-left:6px;color:#b3261e;border-color:#f1c4c0}
 .btn-cert:hover{background:#fdf1f0;border-color:#b3261e}
 </style>
@@ -606,8 +619,8 @@ function saveImage() {
         </fieldset>
       </form>
       <section class="nc-prev">
-        <div class="cap"><span>A4 미리보기</span><span>분홍색 = 미입력</span></div>
-        <div class="nc-fit" id="nc-fit"><div class="nc-sheet" id="nc-sheet"></div></div>
+        <div class="cap"><span>A4 미리보기 (본문 + 별첨 미수금 상세내역)</span><span>분홍색 = 미입력</span></div>
+        <div class="nc-fit" id="nc-fit"><div class="nc-stack" id="nc-stack"><div class="nc-sheet" id="nc-sheet"></div><div id="nc-attach" style="display:contents"></div></div></div>
       </section>
     </div>
   </div>
@@ -620,7 +633,12 @@ const SENDER = { name:"주식회사 유모스트", biz:"217-81-49594", addr:"울
 const ACCOUNT = { bank:"우리은행", no:"1005-003-519136", holder:"(주)유모스트" };
 const REASONS = { q1:"현금판매 단말기채권의 미입금", q2:"판매정책 위반에 따른 수수료반환", q3:"위탁 단말기(재고)의 분실 및 미반환" };
 const today = new Date(), TY = today.getFullYear();
+const DEFAULT_ETC = "위탁판매 정산에 따른 정산금 차감분의 미입금";
 let storeName = "";
+// 미수 자료에서 사업자번호·대표자명을 찾을 필드 후보 (실제 필드명을 알려주시면 맨 앞에 추가)
+const BIZ_FIELDS = ["biz_no","business_no","business_number","biz_number","bizno","reg_no","사업자번호"];
+const REP_FIELDS = ["ceo","ceo_name","representative","rep_name","owner","owner_name","대표자","대표자명"];
+function pick(recs, fields){ for(const r of recs){ for(const f of fields){ const v=r[f]; if(v!=null && String(v).trim()) return String(v).trim(); } } return ""; }
 
 // ---------- 유틸 ----------
 function fill(sel, from, to, val){ sel.innerHTML=""; for(let i=from;i<=to;i++){ const o=document.createElement("option"); o.value=i; o.textContent=String(i).padStart(2,"0"); sel.appendChild(o);} sel.value=Math.min(Math.max(val,from),to); }
@@ -676,14 +694,21 @@ window.openCert = function(code){
   $("title-store").textContent = " · " + storeName;
 
   // 수신인: 상호만 판매점명으로 채우고 나머지는 비움
-  $("rName").value = storeName.replace(/[_\s]*[A-Z]?\d{5,}$/,"").trim();
-  ["rRep","rBiz","rAddr","rTel","rEtc"].forEach(id => $(id).value = "");
+  // 상호: 끝의 코드(_P134117)와 첫 단어(지역명) 제거 → "부산 마징가 연지_P134117" → "마징가 연지"
+  let nm = storeName.replace(/[_\s]*[A-Z]?\d{5,}$/,"").trim();
+  if(/\s/.test(nm)) nm = nm.replace(/^\S+\s+/,"");
+  $("rName").value = nm;
+  ["rAddr","rTel","rEtc"].forEach(id => $(id).value = "");
+  $("rRep").value = pick(a.recs, REP_FIELDS);
+  $("rBiz").value = bizFmt(pick(a.recs, BIZ_FIELDS));
 
   // 사유 자동판정
   setYN("q1", a.mobileNeg.length>0); setYN("q2", a.refund.length>0); setYN("q3", a.lost.length>0);
   $("ev1").textContent = a.mobileNeg.length ? `근거: 모바일정산 마이너스 ${a.mobileNeg.length}건` : "근거: 해당 항목 없음";
   $("ev2").textContent = a.refund.length ? `근거: ${a.refund.length}건 (${a.names(a.refund)})` : "근거: 해당 항목 없음";
   $("ev3").textContent = a.lost.length ? `근거: ${a.lost.length}건 (${a.names(a.lost)})` : "근거: 해당 항목 없음";
+  const allN = !a.mobileNeg.length && !a.refund.length && !a.lost.length;
+  if(allN) $("rEtc").value = DEFAULT_ETC;
 
   // 날짜 드롭다운
   const minY = a.months.length ? Math.floor(a.months[0]/12) : TY;
@@ -698,10 +723,44 @@ window.openCert = function(code){
   $("amt").value = a.balance < 0 ? comma(Math.abs(a.balance)) : "";
 
   hideMsg();
+  if(allN) showMsg("자동판정 사유가 없어 기타 사유에 공통 문구를 넣었습니다. 필요하면 고쳐 쓰세요.", true);
   if(a.balance >= 0) showMsg("이 판매점은 입금반영 잔액에 미수금이 없습니다. 총액을 확인해 주세요.");
   document.getElementById("cert-modal").style.display = "block";
+  buildAttach(code);
   render();
+  if(document.fonts) document.fonts.ready.then(()=>{ buildAttach(code); fit(); });
 };
+
+// ---------- 별첨: 미수금 상세내역 (A4 단위로 나눠 제목행 반복) ----------
+function buildAttach(code){
+  const recs = allMisu.filter(r => r.pos_code === code);
+  const dep = allDeposits.find(d => d.pos_code === code);
+  const rows = recs.map(r => `<tr><td>${esc(r.settlement_month||"-")}</td><td>${esc(r.item||"-")}</td><td class="d">${esc(r.details||"-")}</td><td class="a">${comma(Number(r.amount)||0)}원</td></tr>`);
+  let total = recs.reduce((s,r)=>s+(Number(r.amount)||0),0);
+  if(dep && Number(dep.amount)){ const d=Number(dep.amount); total+=d; rows.push(`<tr class="dep"><td>당월</td><td>입금</td><td class="d">당월입금금액 상계</td><td class="a">${comma(d)}원</td></tr>`); }
+  rows.push(`<tr class="tot"><td colspan="3">최종 청구 합계</td><td class="a">${comma(total)}원</td></tr>`);
+
+  const host=document.createElement("div"); host.style.cssText="position:fixed;left:-10000px;top:0;width:794px;"; document.body.appendChild(host);
+  const pages=[]; let page, tbody;
+  const newPage=()=>{
+    page=document.createElement("div"); page.className="nc-sheet att";
+    page.innerHTML=`<h4>[별첨] 미수금 상세내역${pages.length?" (계속)":""}</h4>
+      <div class="meta"><span>${esc(storeName)}</span><span>내역 ${recs.length}건 · 최종 청구 합계 ${comma(total)}원</span></div>
+      <table><colgroup><col style="width:72px"><col style="width:150px"><col><col style="width:110px"></colgroup>
+      <thead><tr><th>정산년월</th><th>정산항목</th><th>상세내용</th><th>정산금액</th></tr></thead><tbody></tbody></table>
+      <div class="pno"></div>`;
+    host.appendChild(page); tbody=page.querySelector("tbody"); pages.push(page);
+  };
+  newPage();
+  rows.forEach(tr=>{
+    tbody.insertAdjacentHTML("beforeend", tr);
+    if(page.scrollHeight > 1124 && tbody.rows.length > 1){ tbody.lastElementChild.remove(); newPage(); tbody.insertAdjacentHTML("beforeend", tr); }
+  });
+  pages.forEach((p,i)=>{ p.querySelector(".pno").textContent=`별첨 ${i+1} / ${pages.length}`; });
+  $("attach").innerHTML = pages.map(p=>p.outerHTML).join("");
+  host.remove();
+}
+function allPages(){ return [$("sheet"), ...$("attach").querySelectorAll(".nc-sheet")]; }
 function fillDays(keep){ const n=new Date(+$("wY").value, +$("wM").value, 0).getDate(); const cur = keep || +$("wD").value || today.getDate(); fill($("wD"),1,n,Math.min(cur,n)); }
 function closeCert(){ document.getElementById("cert-modal").style.display = "none"; }
 $("close").addEventListener("click", closeCert);
@@ -749,6 +808,7 @@ function render(){
           <li><span class="k">미수금 발생기간</span>: ${s.periodOk ? `<span class="v">${s.period}</span>` : `<span class="hole">[기간 확인: 시작월이 종료월보다 늦음]</span>`}</li>
           <li><span class="k">미수금 총액</span>: ${val(amtTxt,"미수금 총액")}</li>
           <li><span class="k">당초 지급기일</span>: <span class="v">${fmtDate(s.payBy)}</span></li>
+          <li><span class="k">세부내역</span>: 별첨 「미수금 상세내역」 참조</li>
         </ul></span></li>
       <li><span class="n">4.</span><span>귀하(사)는 당초 약정된 지급기일로부터 상당 기간이 경과하였고 당사의 지속적인 지급 요청에도 불구하고 미수금 지급을 계속 지연하고 있습니다. 이는 명백한 계약위반에 해당하며, 당사는 위탁판매계약에 따른 미수금 지급청구권 및 채무불이행에 따른 손해배상청구권이 있음을 고지합니다.</span></li>
       <li><span class="n">5.</span><span>따라서 당사는 본 내용증명을 통하여 <span class="v">${fmtDate(s.due)}</span>까지 위 미수금 전액을 아래 계좌로 입금하여 주실 것을 엄중히 촉구합니다.</span></li>
@@ -770,7 +830,7 @@ function render(){
   fit();
   return s;
 }
-function fit(){ const box=$("fit"), sh=$("sheet"); if(!box.clientWidth) return; const sc=Math.min(1, box.clientWidth/794); sh.style.transform=`scale(${sc})`; box.style.height=(sh.offsetHeight*sc)+"px"; }
+function fit(){ const box=$("fit"), st=$("stack"); if(!box.clientWidth) return; const sc=Math.min(1, box.clientWidth/794); st.style.transform=`scale(${sc})`; box.style.height=(st.offsetHeight*sc)+"px"; }
 if(window.ResizeObserver) new ResizeObserver(fit).observe($("fit"));
 
 // ---------- 입력 ----------
@@ -803,8 +863,10 @@ $("print").addEventListener("click", ()=>{
   const w = window.open("", "_blank"); if(!w){ showMsg("팝업이 차단되었습니다. 브라우저에서 이 사이트의 팝업을 허용해 주세요."); return; }
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>내용증명_${esc(storeName)}</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700;900&display=swap">
-    <style>${document.getElementById("nc-style").textContent}@page{size:A4;margin:0}body{margin:0;background:#fff}.nc-sheet{box-shadow:none;transform:none!important}</style></head>
-    <body><div class="nc-sheet exporting">${$("sheet").innerHTML}</div><script>(document.fonts?document.fonts.ready:Promise.resolve()).then(function(){setTimeout(function(){print();},200);});<\/script></body></html>`);
+    <style>${document.getElementById("nc-style").textContent}@page{size:A4;margin:0}body{margin:0;background:#fff}
+    .nc-sheet{box-shadow:none;transform:none!important;width:210mm;height:296mm;min-height:0;overflow:hidden;break-after:page;page-break-after:always}
+    .nc-sheet:last-child{break-after:auto;page-break-after:auto}</style></head>
+    <body>${allPages().map(p=>`<div class="${p.className} exporting">${p.innerHTML}</div>`).join("")}<script>(document.fonts?document.fonts.ready:Promise.resolve()).then(function(){setTimeout(function(){print();},200);});<\/script></body></html>`);
   w.document.close();
 });
 
@@ -812,17 +874,18 @@ $("print").addEventListener("click", ()=>{
 $("pdf").addEventListener("click", async ()=>{
   const s = checkOk(); if(!s) return;
   const btn=$("pdf"); btn.disabled=true; btn.textContent="PDF 만드는 중…";
-  const clone=$("sheet").cloneNode(true); clone.removeAttribute("id"); clone.classList.add("exporting"); clone.style.transform="none";
-  const host=document.createElement("div"); host.style.cssText="position:fixed;left:-10000px;top:0;width:794px;"; host.appendChild(clone); document.body.appendChild(host);
+  const host=document.createElement("div"); host.style.cssText="position:fixed;left:-10000px;top:0;width:794px;"; document.body.appendChild(host);
   try{
     if(document.fonts) await document.fonts.ready;
-    const canvas = await html2canvas(clone,{scale:2,backgroundColor:"#ffffff",logging:false});
     const pdf = new window.jspdf.jsPDF({unit:"mm",format:"a4",orientation:"portrait"});
-    const pageH = Math.floor(canvas.width*297/210);
-    for(let y=0,p=0; y<canvas.height; y+=pageH,p++){
-      const h=Math.min(pageH, canvas.height-y); if(h<40 && p>0) break;
-      const c=document.createElement("canvas"); c.width=canvas.width; c.height=h; const ctx=c.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,c.width,h); ctx.drawImage(canvas,0,-y);
-      if(p>0) pdf.addPage(); pdf.addImage(c.toDataURL("image/jpeg",0.95),"JPEG",0,0,210,h*210/canvas.width);
+    const pages = allPages();
+    for(let i=0;i<pages.length;i++){
+      btn.textContent=`PDF 만드는 중… (${i+1}/${pages.length})`;
+      const clone=pages[i].cloneNode(true); clone.removeAttribute("id"); clone.classList.add("exporting"); clone.style.height="1123px"; clone.style.overflow="hidden";
+      host.innerHTML=""; host.appendChild(clone);
+      const canvas = await html2canvas(clone,{scale:2,backgroundColor:"#ffffff",logging:false});
+      if(i>0) pdf.addPage();
+      pdf.addImage(canvas.toDataURL("image/jpeg",0.92),"JPEG",0,0,210,Math.min(297, canvas.height*210/canvas.width));
     }
     const d=s.w, ymd=`${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
     pdf.save(`내용증명_${s.rName.replace(/[\\/:*?"<>|]/g,"").slice(0,40)}_${ymd}.pdf`);
