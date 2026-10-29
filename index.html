@@ -636,7 +636,7 @@ const today = new Date(), TY = today.getFullYear();
 const DEFAULT_ETC = "위탁판매 정산에 따른 정산금 차감분의 미입금";
 let storeName = "";
 // 미수 자료에서 사업자번호·대표자명을 찾을 필드 후보 (실제 필드명을 알려주시면 맨 앞에 추가)
-const BIZ_FIELDS = ["biz_no","business_no","business_number","biz_number","bizno","reg_no","사업자번호"];
+const BIZ_FIELDS = ["biz_no","business_no","business_number","biz_number","biz_num","reg_no","사업자번호"];
 const REP_FIELDS = ["ceo","ceo_name","representative","rep_name","owner","owner_name","대표자","대표자명"];
 function pick(recs, fields){ for(const r of recs){ for(const f of fields){ const v=r[f]; if(v!=null && String(v).trim()) return String(v).trim(); } } return ""; }
 
